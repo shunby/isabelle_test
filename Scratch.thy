@@ -195,19 +195,60 @@ fun evalp:: "int List.list \<Rightarrow> int \<Rightarrow> int" where
 "evalp (h # t) x = h + (evalp t x) * x"
 
 fun add_list:: "int List.list \<Rightarrow> int List.list \<Rightarrow> int List.list" where
-"add_list [] _ = []" |
-"add_list _ [] = []" |
-"add_list (h1#t1) (h2#t2) = (h1+t1) # (add_list t1 t2)"
+"add_list [] ys = ys" |
+"add_list (h1#t1) [] = (h1#t1)" |
+"add_list (h1#t1) (h2#t2) = (h1 + h2) # (add_list t1 t2)"
+
+fun mult_list_scalar :: "int \<Rightarrow> int List.list \<Rightarrow> int List.list" where
+"mult_list_scalar n [] = []" |
+"mult_list_scalar n (h # t) = (n * h) # (mult_list_scalar n t)"
+
+fun mult_coeffs :: "int List.list \<Rightarrow> int List.list \<Rightarrow> int List.list" where
+"mult_coeffs [] _ = []" |
+"mult_coeffs (h1#t1) l = 
+  (let h1_l = (mult_list_scalar h1 l) in 
+  (let t1_l_shift = 0#(mult_coeffs t1 l) in 
+  add_list h1_l t1_l_shift ))"
 
 fun coeffs:: "exp \<Rightarrow> int List.list" where
 "coeffs Var = [0,1]" |
 "coeffs (Const n) = [n]" |
 "coeffs (Add e1 e2) = add_list (coeffs e1) (coeffs e2)" |
-"coeffs (Mult e1 e2) = "
-(*
-  0 () \<rightarrow> n
- 1 () \<rightarrow> 0 ()() = 2n+1
-2 () \<rightarrow> 1 ()() \<rightarrow> 4n+3 8n+7
-*)
+"coeffs (Mult e1 e2) = mult_coeffs (coeffs e1) (coeffs e2)"
+
+lemma addlist_nil [simp]: "add_list ys [] = ys"
+  apply (induction ys)
+  apply (auto)
+  done
+lemma evalp_addlist [simp]: "evalp (add_list l1 l2) x = evalp l1 x + evalp l2 x"
+  apply (induction l1 rule:add_list.induct)
+    apply (auto)
+  apply (simp add:algebra_simps)
+  done
+
+lemma evalp_mult_coeffs_0 [simp]: "evalp (mult_coeffs l []) x = 0"
+  apply (induction l)
+   apply (auto)
+  done
+
+lemma evalp_mult_coeffs_1 [simp]: "evalp (mult_list_scalar a l) x = a * evalp l x"
+  apply (induction l)
+   apply (auto)
+  apply (simp add:algebra_simps)
+  done
+
+lemma evalp_mult_coeffs [simp]: "evalp (mult_coeffs l1 l2) x = evalp l1 x * evalp l2 x"
+  apply (induction l1 arbitrary:l2)
+   apply (auto)
+  apply (simp add:algebra_simps)
+  done
+
+theorem "evalp (coeffs e) x = eval e x"
+  apply (induction e)
+  apply (simp)
+  apply (simp)
+   apply (simp)
+  apply (simp add:algebra_simps)
+  done
 
 end
